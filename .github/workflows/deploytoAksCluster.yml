@@ -30,7 +30,7 @@ jobs:
         uses: google-github-actions/auth@v1
         with:
           credentials_json: ${{ secrets.SUPPLYCHAINVISIBILITYDOCKERAUTH }}  # Updated to use the correct secret
-
+          access_token_scopes: https://www.googleapis.com/auth/cloud-platform,https://www.googleapis.com/auth/devstorage.read_write
       # Step 3: Set up gcloud CLI
       - name: Set up gcloud CLI
         uses: google-github-actions/setup-gcloud@v1
