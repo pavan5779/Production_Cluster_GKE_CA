@@ -1,3 +1,5 @@
+name: Build and Deploy to GKE (Production)
+
 on:
   push:
     branches:
@@ -5,52 +7,88 @@ on:
 
 env:
   REGISTRY_NAME: supplychainvisibilitygcr
-  NAMESPACE: supplychainvisibility
   APP_NAME: configmanagementapi
   SECRET_NAME: supplychainvisibilitydockerauth
   NODE_ENV: production
-  NAMESPACES: "supplychainvisibility cert-manager grafana-loki observability"  
+  NAMESPACES: "supplychainvisibility cert-manager grafana-loki observability"
+  PROJECT_ID: settyl-gcp-infra
+  CLUSTER_NAME: supplychainvisibility-aks
+  REGION: us-east1
 
 jobs:
   build-and-deploy:
+    name: Build and Deploy to GKE
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@master
 
-      - name: Authenticate with GCP
+    steps:
+      # Step 1: Checkout repository
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # Step 2: Authenticate with Google Cloud
+      - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v1
         with:
           credentials_json: ${{ secrets.GCP_CREDENTIALS }}
 
-      - name: Configure Docker to use GCP Artifact Registry
+      # Step 3: Set up gcloud CLI
+      - name: Set up gcloud CLI
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          service_account_key: ${{ secrets.GCP_CREDENTIALS }}
+          project_id: ${{ env.PROJECT_ID }}
+
+      # Step 4: Install gke-gcloud-auth-plugin
+      - name: Install gke-gcloud-auth-plugin
+        run: |
+          gcloud components install gke-gcloud-auth-plugin
+
+      # Step 5: Configure Docker for Artifact Registry
+      - name: Configure Docker for Artifact Registry
         run: |
           gcloud auth configure-docker
 
-      - name: Build and push image to GCP Artifact Registry
+      # Step 6: Build and Push Docker Image
+      - name: Build and Push Docker Image
         id: build-image
         run: |
-          docker build "$GITHUB_WORKSPACE/" -f "Dockerfile" -t ${{env.REGISTRY_NAME}}/${{env.APP_NAME}}:${{ github.sha }} --label dockerfile-path=Dockerfile --build-arg NODE_ENV=${NODE_ENV}
-          docker push ${{env.REGISTRY_NAME}}/${{env.APP_NAME}}:${{ github.sha }}
+          docker build "$GITHUB_WORKSPACE/" -f "Dockerfile" -t ${{ env.REGISTRY_NAME }}/${{ env.APP_NAME }}:${{ github.sha }} --label dockerfile-path=Dockerfile --build-arg NODE_ENV=${{ env.NODE_ENV }}
+          docker push ${{ env.REGISTRY_NAME }}/${{ env.APP_NAME }}:${{ github.sha }}
 
-      - name: Set GKE cluster context
+      # Step 7: Set up GKE context
+      - name: Set up GKE context
         uses: google-github-actions/get-gke-credentials@v1
         with:
-          cluster_name: supplychainvisibility-aks
-          location: us-east1
-          project_id: settyl-gcp-infra
+          cluster_name: ${{ env.CLUSTER_NAME }}
+          location: ${{ env.REGION }}
+          project_id: ${{ env.PROJECT_ID }}
 
-      - name: Create namespaces and deploy to GKE
+      # Step 8: Create Namespaces and Deploy to GKE
+      - name: Create Namespaces and Deploy to GKE
         run: |
           for namespace in ${NAMESPACES}; do
             # Create namespace if it doesn't exist
             kubectl get namespace $namespace || kubectl create namespace $namespace
+            
             # Create secret for image pulling in each namespace
             kubectl create secret docker-registry ${SECRET_NAME} \
               --docker-server=${REGISTRY_NAME} \
               --docker-username=_json_key \
               --docker-password="${{ secrets.GCP_CREDENTIALS }}" \
-              --namespace=${namespace}
-            # Deploy to each namespace
+              --namespace=$namespace
+            
+            # Deploy to the namespace
             kubectl apply -f manifests/production/deployment.yml -n $namespace
             kubectl apply -f manifests/production/service.yml -n $namespace
           done
+
+      # Step 9: Verify Deployment
+      - name: Verify Deployment
+        run: |
+          kubectl get all --all-namespaces
+
+      # Optional: Notify on Deployment Success
+      - name: Notify Deployment Success
+        if: success()
+        run: |
+          echo "Deployment to GKE (Production) was successful!"
