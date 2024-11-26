@@ -29,13 +29,13 @@ jobs:
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v1
         with:
-          credentials_json: ${{ secrets.GCP_CREDENTIALS }}
+          credentials_json: ${{ secrets.SUPPLYCHAINVISIBILITYDOCKERAUTH }}  # Updated to use the correct secret
 
       # Step 3: Set up gcloud CLI
       - name: Set up gcloud CLI
         uses: google-github-actions/setup-gcloud@v1
         with:
-          service_account_key: ${{ secrets.GCP_CREDENTIALS }}
+          service_account_key: ${{ secrets.SUPPLYCHAINVISIBILITYDOCKERAUTH }}  # Updated to use the correct secret
           project_id: ${{ env.PROJECT_ID }}
 
       # Step 4: Install gke-gcloud-auth-plugin
@@ -74,7 +74,7 @@ jobs:
             kubectl create secret docker-registry ${SECRET_NAME} \
               --docker-server=${REGISTRY_NAME} \
               --docker-username=_json_key \
-              --docker-password="${{ secrets.GCP_CREDENTIALS }}" \
+              --docker-password="${{ secrets.SUPPLYCHAINVISIBILITYDOCKERAUTH }}" \  # Updated to use the correct secret
               --namespace=$namespace
             
             # Deploy to the namespace
