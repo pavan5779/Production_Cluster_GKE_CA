@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "configmanagementapi"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: "configmanagementapi"
+  template:
+    metadata:
+      labels:
+        app: "configmanagementapi"
+    spec:
+      containers:
+        - name: "configmanagementapi"
+          image: "us-east1-docker.pkg.dev/settyl-gcp-infra/supplychainvisibilitygcr/configmanagementapi"
+          ports:
+            - containerPort: 8000

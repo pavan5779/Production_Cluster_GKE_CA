@@ -1,0 +1,56 @@
+on:
+  push:
+    branches:
+      - main
+
+env:
+  REGISTRY_NAME: supplychainvisibilitygcr
+  NAMESPACE: supplychainvisibility
+  APP_NAME: configmanagementapi
+  SECRET_NAME: supplychainvisibilitydockerauth
+  NODE_ENV: production
+  NAMESPACES: "supplychainvisibility cert-manager grafana-loki observability"  
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+
+      - name: Authenticate with GCP
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GCP_CREDENTIALS }}
+
+      - name: Configure Docker to use GCP Artifact Registry
+        run: |
+          gcloud auth configure-docker
+
+      - name: Build and push image to GCP Artifact Registry
+        id: build-image
+        run: |
+          docker build "$GITHUB_WORKSPACE/" -f "Dockerfile" -t ${{env.REGISTRY_NAME}}/${{env.APP_NAME}}:${{ github.sha }} --label dockerfile-path=Dockerfile --build-arg NODE_ENV=${NODE_ENV}
+          docker push ${{env.REGISTRY_NAME}}/${{env.APP_NAME}}:${{ github.sha }}
+
+      - name: Set GKE cluster context
+        uses: google-github-actions/get-gke-credentials@v1
+        with:
+          cluster_name: supplychainvisibility-aks
+          location: us-east1
+          project_id: settyl-gcp-infra
+
+      - name: Create namespaces and deploy to GKE
+        run: |
+          for namespace in ${NAMESPACES}; do
+            # Create namespace if it doesn't exist
+            kubectl get namespace $namespace || kubectl create namespace $namespace
+            # Create secret for image pulling in each namespace
+            kubectl create secret docker-registry ${SECRET_NAME} \
+              --docker-server=${REGISTRY_NAME} \
+              --docker-username=_json_key \
+              --docker-password="${{ secrets.GCP_CREDENTIALS }}" \
+              --namespace=${namespace}
+            # Deploy to each namespace
+            kubectl apply -f manifests/production/deployment.yml -n $namespace
+            kubectl apply -f manifests/production/service.yml -n $namespace
+          done
