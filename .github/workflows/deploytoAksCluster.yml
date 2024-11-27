@@ -13,7 +13,7 @@ env:
   PROJECT_ID: settyl-gcp-infra
   CLUSTER_NAME: supplychainvisibility-aks
   ARTIFACT_REGION: us-east1
-  REGION: us-east-1
+  REGION: us-east1
   
 jobs:
   build-and-deploy:
