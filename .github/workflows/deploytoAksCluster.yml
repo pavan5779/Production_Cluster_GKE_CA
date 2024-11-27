@@ -6,13 +6,14 @@ on:
       - main
 
 env:
-  REGISTRY_NAME: supplychainvisibilitygcr
-  APP_NAME: configmanagementapi
+  ARTIFACT_REPO: supplychainvisibilitygcr
+  IMAGE_NAME: configmanagementapi
   SECRET_NAME: supplychainvisibilitydockerauth
   NODE_ENV: production
   NAMESPACES: "supplychainvisibility cert-manager grafana-loki observability"
   PROJECT_ID: settyl-gcp-infra
   CLUSTER_NAME: supplychainvisibility-aks
+  ARTIFACT_REGION: us-east1
   REGION: us-east1
 
 jobs:
@@ -30,8 +31,7 @@ jobs:
         uses: google-github-actions/auth@v1
         with:
           credentials_json: ${{ secrets.SUPPLYCHAINVISIBILITYDOCKERAUTH }}
-          access_token_scopes: https://www.googleapis.com/auth/cloud-platform,https://www.googleapis.com/auth/devstorage.full_control
-
+          
       # Step 3: Set up gcloud CLI
       - name: Set up gcloud CLI
         uses: google-github-actions/setup-gcloud@v1
@@ -47,13 +47,13 @@ jobs:
       # Step 5: Configure Docker for Artifact Registry
       - name: Configure Docker for Artifact Registry
         run: |
-          gcloud auth configure-docker
+          gcloud auth configure-docker ${ARTIFACT_REGION}-docker.pkg.dev
 
       # Step 6: Build and Push Docker Image
       - name: Build and Push Docker Image
         run: |
-          docker build "$GITHUB_WORKSPACE/" -f "Dockerfile" -t ${{ env.REGISTRY_NAME }}/${{ env.APP_NAME }}:${{ github.sha }} --build-arg NODE_ENV=${{ env.NODE_ENV }}
-          docker push ${{ env.REGISTRY_NAME }}/${{ env.APP_NAME }}:${{ github.sha }}
+          docker build "$GITHUB_WORKSPACE/" -f "Dockerfile" -t ${{ env.ARTIFACT_REPO }}/${{ env.IMAGE_NAME }}:${{ github.sha }} --build-arg NODE_ENV=${{ env.NODE_ENV }}
+          docker push ${{ env.ARTIFACT_REPO }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
       # Step 7: Set up GKE context
       - name: Set up GKE context
@@ -73,7 +73,7 @@ jobs:
             
             # Create secret for image pulling in each namespace
             kubectl get secret ${SECRET_NAME} -n $namespace || kubectl create secret docker-registry ${SECRET_NAME} \
-              --docker-server=${REGISTRY_NAME} \
+              --docker-server=${ARTIFACT_REPO} \
               --docker-username=_json_key \
               --docker-password="${{ secrets.SUPPLYCHAINVISIBILITYDOCKERAUTH }}" \
               --namespace=$namespace
