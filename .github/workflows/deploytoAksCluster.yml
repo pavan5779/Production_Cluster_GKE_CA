@@ -6,14 +6,15 @@ on:
       - main
 
 env:
-  REGISTRY_NAME: supplychainvisibilitygcr
-  APP_NAME: configmanagementapi
+  ARTIFACT_REPO: supplychainvisibilitygcr
+  IMAGE_NAME: configmanagementapi
   NODE_ENV: production
   NAMESPACES: "supplychainvisibility cert-manager grafana-loki observability"
   PROJECT_ID: settyl-gcp-infra
   CLUSTER_NAME: supplychainvisibility-aks
-  REGION: us-east1
-
+  ARTIFACT_REGION: us-east1
+  REGION: us-east-1
+  
 jobs:
   build-and-deploy:
     name: Build and Deploy to GKE
@@ -44,15 +45,15 @@ jobs:
       # Step 5: Configure Docker for Artifact Registry
       - name: Configure Docker for Artifact Registry
         run: |
-          gcloud auth configure-docker
+          gcloud auth configure-docker ${ARTIFACT_REGION}-docker.pkg.dev
 
       # Step 6: Build and Push Docker Image
       - name: Build and Push Docker Image
         id: build-image
         run: |
-          docker build "$GITHUB_WORKSPACE/" -f "Dockerfile" -t ${{ env.REGISTRY_NAME }}/${{ env.APP_NAME }}:${{ github.sha }} --label dockerfile-path=Dockerfile --build-arg NODE_ENV=${{ env.NODE_ENV }}
-          docker push ${{ env.REGISTRY_NAME }}/${{ env.APP_NAME }}:${{ github.sha }}
-
+          IMAGE_TAG=${{ github.sha }}
+          docker build -t ${ARTIFACT_REGION}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/${{ env.IMAGE_NAME }}:${{IMAGE_TAG}} .
+          docker push ${ARTIFACT_REGION}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/${{ env.IMAGE_NAME }}:${{IMAGE_TAG}}
       # Step 7: Set up GKE context
       - name: Set up GKE context
         uses: google-github-actions/get-gke-credentials@v1
