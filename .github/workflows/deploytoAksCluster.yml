@@ -59,33 +59,45 @@ jobs:
 
       # Step 7: Set up GKE context
       - name: Set up GKE context
-        uses: google-github-actions/get-gke-credentials@v1
-        with:
-          cluster_name: ${{ env.CLUSTER_NAME }}
-          location: ${{ env.REGION }}
-          project_id: ${{ env.PROJECT_ID }}
+        run: |
+          gcloud container clusters get-credentials ${{ env.CLUSTER_NAME }} \
+            --region ${{ env.REGION }} \
+            --project ${{ env.PROJECT_ID }}
 
       # Step 8: Create Namespaces and Deploy to GKE
       - name: Create Namespaces and Deploy to GKE
         run: |
+          set -e # Exit immediately if a command exits with a non-zero status
           for namespace in ${NAMESPACES}; do
             echo "Processing namespace: $namespace"
-            # Create namespace if it doesn't exist
-            kubectl get namespace $namespace || kubectl create namespace $namespace || echo "Error creating namespace $namespace"
             
-            # Create secret for image pulling in each namespace
-            kubectl get secret ${SECRET_NAME} -n $namespace || kubectl create secret docker-registry ${SECRET_NAME} \
-              --docker-server=${ARTIFACT_REPO} \
-              --docker-username=_json_key \
-              --docker-password="${{ secrets.SUPPLYCHAINVISIBILITYDOCKERAUTH }}" \
-              --namespace=$namespace
-            
-            # Deploy manifests if they exist
-            if [ -f manifests/production/deployment.yml ] && [ -f manifests/production/service.yml ]; then
-              kubectl apply -f manifests/production/deployment.yml -n $namespace
-              kubectl apply -f manifests/production/service.yml -n $namespace
+            # Step 8.1: Create namespace if it doesn't exist
+            if kubectl get namespace $namespace > /dev/null 2>&1; then
+              echo "Namespace $namespace already exists"
             else
-              echo "Manifests not found for namespace: $namespace"
+              echo "Creating namespace: $namespace"
+              kubectl create namespace $namespace || { echo "Failed to create namespace $namespace"; exit 1; }
+            fi
+            
+            # Step 8.2: Create or verify the image pull secret
+            if kubectl get secret ${SECRET_NAME} -n $namespace > /dev/null 2>&1; then
+              echo "Secret ${SECRET_NAME} already exists in namespace $namespace"
+            else
+              echo "Creating secret ${SECRET_NAME} in namespace $namespace"
+              kubectl create secret docker-registry ${SECRET_NAME} \
+                --docker-server=${ARTIFACT_REPO} \
+                --docker-username=_json_key \
+                --docker-password="${{ secrets.SUPPLYCHAINVISIBILITYDOCKERAUTH }}" \
+                --namespace=$namespace || { echo "Failed to create secret in namespace $namespace"; exit 1; }
+            fi
+
+            # Step 8.3: Apply manifests if they exist
+            if [ -f manifests/production/deployment.yml ] && [ -f manifests/production/service.yml ]; then
+              echo "Applying manifests to namespace $namespace"
+              kubectl apply -f manifests/production/deployment.yml -n $namespace || { echo "Failed to apply deployment manifest in namespace $namespace"; exit 1; }
+              kubectl apply -f manifests/production/service.yml -n $namespace || { echo "Failed to apply service manifest in namespace $namespace"; exit 1; }
+            else
+              echo "Deployment or Service manifest not found. Skipping namespace: $namespace"
             fi
           done
 
