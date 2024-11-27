@@ -64,8 +64,8 @@ jobs:
       # Step 9: Deploy to GKE
       - name: Deploy to GKE
         run: |
-          kubectl apply -f manifests/staging/deployment.yml
-          kubectl apply -f manifests/staging/service.yml
+          kubectl apply -f manifests/production/deployment.yml
+          kubectl apply -f manifests/production/service.yml
           kubectl rollout restart deployment/configmanagementapi -n supplychainvisibility
 
       # Step 10: Verify Deployment
