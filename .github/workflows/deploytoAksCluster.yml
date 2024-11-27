@@ -51,9 +51,11 @@ jobs:
 
       # Step 6: Build and Push Docker Image
       - name: Build and Push Docker Image
+        id: build-image
         run: |
-          docker build "$GITHUB_WORKSPACE/" -f "Dockerfile" -t ${{ env.ARTIFACT_REPO }}/${{ env.IMAGE_NAME }}:${{ github.sha }} --build-arg NODE_ENV=${{ env.NODE_ENV }}
-          docker push ${{ env.ARTIFACT_REPO }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          IMAGE_TAG=${{ github.sha }}  # Using commit SHA for tagging
+          docker build -t ${ARTIFACT_REGION}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/${{ env.IMAGE_NAME }}:${IMAGE_TAG} .
+          docker push ${ARTIFACT_REGION}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/${{ env.IMAGE_NAME }}:${IMAGE_TAG}
 
       # Step 7: Set up GKE context
       - name: Set up GKE context
