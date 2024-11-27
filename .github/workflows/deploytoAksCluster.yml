@@ -6,15 +6,15 @@ on:
       - main
 
 env:
-  ARTIFACT_REPO: supplychainvisibilitygcr
-  IMAGE_NAME: configmanagementapi
+  REGISTRY_NAME: supplychainvisibilitygcr
+  APP_NAME: configmanagementapi
+  SECRET_NAME: supplychainvisibilitydockerauth
   NODE_ENV: production
   NAMESPACES: "supplychainvisibility cert-manager grafana-loki observability"
   PROJECT_ID: settyl-gcp-infra
   CLUSTER_NAME: supplychainvisibility-aks
-  ARTIFACT_REGION: us-east1
   REGION: us-east1
-  
+
 jobs:
   build-and-deploy:
     name: Build and Deploy to GKE
@@ -30,6 +30,7 @@ jobs:
         uses: google-github-actions/auth@v1
         with:
           credentials_json: ${{ secrets.SUPPLYCHAINVISIBILITYDOCKERAUTH }}
+          access_token_scopes: https://www.googleapis.com/auth/cloud-platform,https://www.googleapis.com/auth/devstorage.full_control
 
       # Step 3: Set up gcloud CLI
       - name: Set up gcloud CLI
@@ -46,36 +47,56 @@ jobs:
       # Step 5: Configure Docker for Artifact Registry
       - name: Configure Docker for Artifact Registry
         run: |
-          gcloud auth configure-docker ${ARTIFACT_REGION}-docker.pkg.dev
+          gcloud auth configure-docker
 
       # Step 6: Build and Push Docker Image
       - name: Build and Push Docker Image
-        id: build-image
         run: |
-          IMAGE_TAG=${{ github.sha }}  # Using commit SHA for tagging
-          docker build -t ${ARTIFACT_REGION}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/${{ env.IMAGE_NAME }}:${IMAGE_TAG} .
-          docker push ${ARTIFACT_REGION}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/${{ env.IMAGE_NAME }}:${IMAGE_TAG}
+          docker build "$GITHUB_WORKSPACE/" -f "Dockerfile" -t ${{ env.REGISTRY_NAME }}/${{ env.APP_NAME }}:${{ github.sha }} --build-arg NODE_ENV=${{ env.NODE_ENV }}
+          docker push ${{ env.REGISTRY_NAME }}/${{ env.APP_NAME }}:${{ github.sha }}
 
       # Step 7: Set up GKE context
       - name: Set up GKE context
-        run: |
-          gcloud container clusters get-credentials ${{ env.CLUSTER_NAME }} \
-            --region ${{ env.REGION }} \
-            --project ${{ env.PROJECT_ID }}
+        uses: google-github-actions/get-gke-credentials@v1
+        with:
+          cluster_name: ${{ env.CLUSTER_NAME }}
+          location: ${{ env.REGION }}
+          project_id: ${{ env.PROJECT_ID }}
 
-      # Step 8: Deploy to GKE
-      - name: Deploy to GKE
+      # Step 8: Create Namespaces and Deploy to GKE
+      - name: Create Namespaces and Deploy to GKE
         run: |
-          kubectl apply -f manifests/production/deployment.yml
-          kubectl apply -f manifests/production/service.yml
+          for namespace in ${NAMESPACES}; do
+            echo "Processing namespace: $namespace"
+            # Create namespace if it doesn't exist
+            kubectl get namespace $namespace || kubectl create namespace $namespace || echo "Error creating namespace $namespace"
+            
+            # Create secret for image pulling in each namespace
+            kubectl get secret ${SECRET_NAME} -n $namespace || kubectl create secret docker-registry ${SECRET_NAME} \
+              --docker-server=${REGISTRY_NAME} \
+              --docker-username=_json_key \
+              --docker-password="${{ secrets.SUPPLYCHAINVISIBILITYDOCKERAUTH }}" \
+              --namespace=$namespace
+            
+            # Deploy manifests if they exist
+            if [ -f manifests/production/deployment.yml ] && [ -f manifests/production/service.yml ]; then
+              kubectl apply -f manifests/production/deployment.yml -n $namespace
+              kubectl apply -f manifests/production/service.yml -n $namespace
+            else
+              echo "Manifests not found for namespace: $namespace"
+            fi
+          done
 
       # Step 9: Verify Deployment
       - name: Verify Deployment
         run: |
-          kubectl get all --all-namespaces
+          for namespace in ${NAMESPACES}; do
+            echo "Verifying resources in namespace: $namespace"
+            kubectl get all -n $namespace || echo "Error fetching resources in $namespace"
+          done
 
       # Optional: Notify on Deployment Success
       - name: Notify Deployment Success
         if: success()
         run: |
-          echo "Deployment to GKE was successful!"
+          echo "Deployment to GKE (Production) was successful!"
