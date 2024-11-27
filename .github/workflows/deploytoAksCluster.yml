@@ -8,7 +8,6 @@ on:
 env:
   REGISTRY_NAME: supplychainvisibilitygcr
   APP_NAME: configmanagementapi
-  SECRET_NAME: GCP_SERVICE_ACCOUNT_KEY
   NODE_ENV: production
   NAMESPACES: "supplychainvisibility cert-manager grafana-loki observability"
   PROJECT_ID: settyl-gcp-infra
