@@ -29,12 +29,13 @@ jobs:
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v1
         with:
-          credentials_json: ${{ secrets.SUPPLYCHAINVISIBILITYDOCKERAUTH }}  # Updated to use the correct secret
+          credentials_json: ${{ secrets.SUPPLYCHAINVISIBILITYDOCKERAUTH }}
+
       # Step 3: Set up gcloud CLI
       - name: Set up gcloud CLI
         uses: google-github-actions/setup-gcloud@v1
         with:
-          service_account_key: ${{ secrets.SUPPLYCHAINVISIBILITYDOCKERAUTH }}  # Updated to use the correct secret
+          service_account_key: ${{ secrets.SUPPLYCHAINVISIBILITYDOCKERAUTH }}
           project_id: ${{ env.PROJECT_ID }}
 
       # Step 4: Install gke-gcloud-auth-plugin
@@ -51,9 +52,10 @@ jobs:
       - name: Build and Push Docker Image
         id: build-image
         run: |
-          IMAGE_TAG=${{ github.sha }}
-          docker build -t ${ARTIFACT_REGION}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/${{ env.IMAGE_NAME }}:latest .
-          docker push ${ARTIFACT_REGION}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/${{ env.IMAGE_NAME }}:latest
+          IMAGE_TAG=${{ github.sha }}  # Using commit SHA for tagging
+          docker build -t ${ARTIFACT_REGION}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/${{ env.IMAGE_NAME }}:${IMAGE_TAG} .
+          docker push ${ARTIFACT_REGION}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/${{ env.IMAGE_NAME }}:${IMAGE_TAG}
+
       # Step 7: Set up GKE context
       - name: Set up GKE context
         run: |
@@ -61,14 +63,14 @@ jobs:
             --region ${{ env.REGION }} \
             --project ${{ env.PROJECT_ID }}
 
-      # Step 9: Deploy to GKE
+      # Step 8: Deploy to GKE
       - name: Deploy to GKE
         run: |
           kubectl apply -f manifests/production/deployment.yml
           kubectl apply -f manifests/production/service.yml
           kubectl rollout restart deployment/configmanagementapi -n supplychainvisibility
 
-      # Step 10: Verify Deployment
+      # Step 9: Verify Deployment
       - name: Verify Deployment
         run: |
           kubectl get all --all-namespaces
