@@ -8,7 +8,7 @@ on:
 env:
   REGISTRY_NAME: supplychainvisibilitygcr
   APP_NAME: configmanagementapi
-  SECRET_NAME: supplychainvisibilitydockerauth
+  SECRET_NAME: GCP_SERVICE_ACCOUNT_KEY
   NODE_ENV: production
   NAMESPACES: "supplychainvisibility cert-manager grafana-loki observability"
   PROJECT_ID: settyl-gcp-infra
@@ -29,13 +29,13 @@ jobs:
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v1
         with:
-          credentials_json: ${{ secrets.SUPPLYCHAINVISIBILITYDOCKERAUTH }}  # Updated to use the correct secret
+          credentials_json: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}  # Updated to use the correct secret
           access_token_scopes: https://www.googleapis.com/auth/cloud-platform,https://www.googleapis.com/auth/devstorage.read_write
       # Step 3: Set up gcloud CLI
       - name: Set up gcloud CLI
         uses: google-github-actions/setup-gcloud@v1
         with:
-          service_account_key: ${{ secrets.SUPPLYCHAINVISIBILITYDOCKERAUTH }}  # Updated to use the correct secret
+          service_account_key: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}  # Updated to use the correct secret
           project_id: ${{ env.PROJECT_ID }}
 
       # Step 4: Install gke-gcloud-auth-plugin
@@ -74,7 +74,7 @@ jobs:
             kubectl create secret docker-registry ${SECRET_NAME} \
               --docker-server=${REGISTRY_NAME} \
               --docker-username=_json_key \
-              --docker-password="${{ secrets.SUPPLYCHAINVISIBILITYDOCKERAUTH }}" \  # Updated to use the correct secret
+              --docker-password="${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}" \  # Updated to use the correct secret
               --namespace=$namespace
             
             # Deploy to the namespace
