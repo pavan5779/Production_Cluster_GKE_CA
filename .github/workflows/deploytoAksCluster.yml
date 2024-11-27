@@ -67,7 +67,7 @@ jobs:
       # Step 8: Create Namespaces and Deploy to GKE
       - name: Create Namespaces and Deploy to GKE
         run: |
-          set -e # Exit immediately if a command exits with a non-zero status
+          set -e
           for namespace in ${NAMESPACES}; do
             echo "Processing namespace: $namespace"
             
@@ -85,12 +85,12 @@ jobs:
             else
               echo "Creating secret ${SECRET_NAME} in namespace $namespace"
               kubectl create secret docker-registry ${SECRET_NAME} \
-                --docker-server=${ARTIFACT_REPO} \
+                --docker-server=${ARTIFACT_REGION}-docker.pkg.dev \
                 --docker-username=_json_key \
                 --docker-password="${{ secrets.SUPPLYCHAINVISIBILITYDOCKERAUTH }}" \
                 --namespace=$namespace || { echo "Failed to create secret in namespace $namespace"; exit 1; }
             fi
-
+            
             # Step 8.3: Apply manifests if they exist
             if [ -f manifests/production/deployment.yml ] && [ -f manifests/production/service.yml ]; then
               echo "Applying manifests to namespace $namespace"
