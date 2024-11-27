@@ -67,6 +67,7 @@ jobs:
         run: |
           kubectl apply -f manifests/production/deployment.yml
           kubectl apply -f manifests/production/service.yml
+          kubectl rollout restart deployment/configmanagementapi -n supplychainvisibility
 
       # Step 9: Verify Deployment
       - name: Verify Deployment
