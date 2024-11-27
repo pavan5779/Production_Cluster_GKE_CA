@@ -56,32 +56,19 @@ jobs:
           docker push ${ARTIFACT_REGION}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/${{ env.IMAGE_NAME }}:latest
       # Step 7: Set up GKE context
       - name: Set up GKE context
-        uses: google-github-actions/get-gke-credentials@v1
-        with:
-          cluster_name: ${{ env.CLUSTER_NAME }}
-          location: ${{ env.REGION }}
-          project_id: ${{ env.PROJECT_ID }}
-
-      # Step 8: Create Namespaces and Deploy to GKE
-      - name: Create Namespaces and Deploy to GKE
         run: |
-          for namespace in ${NAMESPACES}; do
-            # Create namespace if it doesn't exist
-            kubectl get namespace $namespace || kubectl create namespace $namespace
-            
-            # Create secret for image pulling in each namespace
-            kubectl create secret docker-registry ${SECRET_NAME} \
-              --docker-server=${REGISTRY_NAME} \
-              --docker-username=_json_key \
-              --docker-password="${{ secrets.SUPPLYCHAINVISIBILITYDOCKERAUTH }}" \  # Updated to use the correct secret
-              --namespace=$namespace
-            
-            # Deploy to the namespace
-            kubectl apply -f manifests/production/deployment.yml -n $namespace
-            kubectl apply -f manifests/production/service.yml -n $namespace
-          done
+          gcloud container clusters get-credentials ${{ env.CLUSTER_NAME }} \
+            --region ${{ env.REGION }} \
+            --project ${{ env.PROJECT_ID }}
 
-      # Step 9: Verify Deployment
+      # Step 9: Deploy to GKE
+      - name: Deploy to GKE
+        run: |
+          kubectl apply -f manifests/staging/deployment.yml
+          kubectl apply -f manifests/staging/service.yml
+          kubectl rollout restart deployment/configmanagementapi -n supplychainvisibility
+
+      # Step 10: Verify Deployment
       - name: Verify Deployment
         run: |
           kubectl get all --all-namespaces
@@ -90,4 +77,4 @@ jobs:
       - name: Notify Deployment Success
         if: success()
         run: |
-          echo "Deployment to GKE (Production) was successful!"
+          echo "Deployment to GKE was successful!"
