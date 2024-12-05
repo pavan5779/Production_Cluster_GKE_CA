@@ -10,7 +10,7 @@ env:
   IMAGE_NAME: configmanagementapi
   NODE_ENV: production
   PROJECT_ID: settyl-gcp-infra
-  CLUSTER_NAME: supplychainvisibility-aks
+  CLUSTER_NAME: supplychainvisibility-gks
   ARTIFACT_REGION: us-east1
   REGION: us-east1
   
