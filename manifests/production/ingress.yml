@@ -11,13 +11,12 @@ metadata:
 spec:
   tls:
     - hosts:
-        - gke.staging.golive.settyl.com
+        - gke.golive.settyl.com
       secretName: supplychainvisibility-tls 
   rules:
-    - host: gke.staging.golive.settyl.com # Specify the hostname
+    - host: gke.staging.golive.settyl.com 
       http:
         paths:
-          # Path to match /api/healthcheck
           - path: /api/healthcheck
             pathType: Prefix
             backend:
