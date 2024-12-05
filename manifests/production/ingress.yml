@@ -14,7 +14,7 @@ spec:
         - gke.golive.settyl.com
       secretName: supplychainvisibility-tls 
   rules:
-    - host: gke.staging.golive.settyl.com 
+    - host: gke.golive.settyl.com 
       http:
         paths:
           - path: /api/healthcheck
